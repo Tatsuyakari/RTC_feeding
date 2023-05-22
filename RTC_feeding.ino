@@ -12,6 +12,7 @@ const char* htmlContent = R"HTML(
 <html>
 <head>
   <title>Feeding Config</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
   <style>
     body {
@@ -91,6 +92,23 @@ const char* htmlContent = R"HTML(
         margin-bottom: 0;
       }
     }
+    
+    @media (max-width: 767px) {
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+      }
+      
+      .form-control {
+        margin-bottom: 15px;
+      }
+    }
+    
+    @media (max-width: 575px) {
+      h1, h2 {
+        text-align: center;
+      }
+    }
   </style>
 </head>
 <body>
@@ -123,6 +141,7 @@ const char* htmlContent = R"HTML(
               <th scope="col">Order</th>
               <th scope="col">Time</th>
               <th scope="col">Level</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -135,9 +154,6 @@ const char* htmlContent = R"HTML(
 </body>
 </html>
 )HTML";
-
-
-
 
 RTC_DS1307 rtc;
 AsyncWebServer server(80);
@@ -212,7 +228,9 @@ void setup() {
                      + time + "</td>"
                               "<td>"
                      + String(feedingList[i].level) + "</td>"
-                                                      "</tr>";
+                                                      "<td>"
+                     + "<a class='btn btn-danger' href='/delete?index=" + String(feedingList[i].index) + "'>Delete</a>" + "</td>"
+                                                                                                                          "</tr>";
     }
 
     String response = String(htmlContent);
@@ -220,6 +238,7 @@ void setup() {
     response = response.substring(0, placeholderIndex) + listContent + response.substring(placeholderIndex + 19);
     request->send(200, "text/html", response);
   });
+
 
 
   server.on("/save", HTTP_GET, [](AsyncWebServerRequest* request) {
@@ -269,6 +288,33 @@ void setup() {
     }
   });
 
+  server.on("/delete", HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (request->hasParam("index")) {
+      int index = request->getParam("index")->value().toInt();
+
+      if (index > 0 && index <= feedingListSize) {
+        // Shift the feeding list elements after the deleted index
+        for (int i = index - 1; i < feedingListSize - 1; i++) {
+          feedingList[i] = feedingList[i + 1];
+        }
+        feedingListSize--;
+
+        // Sort the feeding list by time
+        sortFeedingList();
+
+        String response = "<link rel='stylesheet' href='https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css'>";
+        response += "<div class='alert alert-success' role='alert'>Feeding time deleted successfully</div>";
+        response += "<script>setTimeout(function() { window.location.href = '/'; }, 3000);</script>";
+        request->send(200, "text/html", response);
+      } else {
+        String response = "<link rel='stylesheet' href='https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css'>";
+        response += "<div class='alert alert-danger' role='alert'>Invalid index</div>";
+        response += "<script>setTimeout(function() { window.location.href = '/'; }, 3000);</script>";
+        request->send(200, "text/html", response);
+        Serial.println("Invalid index");
+      }
+    }
+  });
 
 
 
